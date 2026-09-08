@@ -1,0 +1,874 @@
+// VPP — Phase 0: ERD (Prisma Schema Draft)
+// This is a DESIGN document, not production code.
+// Generated from PRD v0.9 — 2026-09-03
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// PARTY DOMAIN
+// ============================================================
+
+model Party {
+  id            String         @id @default(cuid())
+  type          PartyType
+  displayName   String
+  economicCode  String?
+  nationalId    String?        // for PERSON
+  registrationNo String?       // for COMPANY
+  taxId         String?
+  phone         String?
+  email         String?
+  address       String?
+  status        PartyStatus    @default(ACTIVE)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  users              User[]
+  assets             Asset[]              @relation("AssetOwner")
+  businessRelations  BusinessRelation[]
+  relationshipsFrom  Relationship[]       @relation("RelFrom")
+  relationshipsTo    Relationship[]       @relation("RelTo")
+  contractParties    ContractParty[]
+  nettingGroups      NettingGroup[]
+  requests           Request[]
+
+  @@map("parties")
+}
+
+model User {
+  id        String    @id @default(cuid())
+  partyId   String?
+  party     Party?    @relation(fields: [partyId], references: [id])
+  name      String
+  mobile    String    @unique
+  email     String?
+  password  String?   // hashed, null for OTP-only
+  role      UserRole  @default(CUSTOMER)
+  active    Boolean   @default(true)
+  lastLogin DateTime?
+  createdAt DateTime  @default(now())
+
+  auditLogs AuditLog[]
+
+  @@map("users")
+}
+
+model BusinessRelation {
+  id        String         @id @default(cuid())
+  partyId   String
+  party     Party          @relation(fields: [partyId], references: [id])
+  type      RelationType
+  startDate DateTime
+  endDate   DateTime?
+  notes     String?
+  createdAt DateTime       @default(now())
+
+  @@map("business_relations")
+}
+
+model Relationship {
+  id            String         @id @default(cuid())
+  fromEntityId  String
+  fromEntity    Party          @relation("RelFrom", fields: [fromEntityId], references: [id])
+  toEntityId    String
+  toEntity      Party          @relation("RelTo", fields: [toEntityId], references: [id])
+  type          RelationshipType
+  validFrom     DateTime       @default(now())
+  validTo       DateTime?
+  metadata      Json?          // flexible additional data
+  createdAt     DateTime       @default(now())
+
+  @@map("relationships")
+}
+
+// ============================================================
+// ASSET DOMAIN
+// ============================================================
+
+model Asset {
+  id                String        @id @default(cuid())
+  ownerId           String
+  owner             Party         @relation("AssetOwner", fields: [ownerId], references: [id])
+  internalCode      String?       @unique
+  name              String
+  type              AssetType
+  status            AssetStatus   @default(PLANNING)
+  province          String
+  city              String
+  address           String?
+  latitude          Float?
+  longitude         Float?
+  gridCompany       String?       // electricity distribution company
+  connectionPoint   String?
+  capacityNominal   Float         // kW
+  capacitySellable  Float         // kW (may differ from nominal)
+  technology        String?       // e.g., "PV", "GT", "CHP"
+  operationalDate   DateTime?
+  connectionDate    DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  meters              Meter[]
+  generationProfile   GenerationProfile?
+  assetDocuments      AssetDocument[]
+  contractAssets      ContractAsset[]
+  settlements         Settlement[]
+  meterReadings       MeterReading[]
+  requests            Request[]
+
+  @@map("assets")
+}
+
+model Meter {
+  id            String     @id @default(cuid())
+  assetId       String
+  asset         Asset      @relation(fields: [assetId], references: [id])
+  type          MeterType  @default(MAIN)
+  serialNumber  String
+  manufacturer  String?
+  model         String?
+  readInterval  ReadInterval @default(DAILY)
+  dataSource    DataSource  @default(SMART_METER)
+  installDate   DateTime?
+  active        Boolean    @default(true)
+  createdAt     DateTime   @default(now())
+
+  readings MeterReading[]
+
+  @@map("meters")
+}
+
+model GenerationProfile {
+  id              String   @id @default(cuid())
+  assetId         String   @unique
+  asset           Asset    @relation(fields: [assetId], references: [id])
+  year            Int
+  method          String   // CAPACITY_FACTOR | HISTORICAL | ENGINEERING
+  source          String?  // description of source
+  jan             Float
+  feb             Float
+  mar             Float
+  apr             Float
+  may             Float
+  jun             Float
+  jul             Float
+  aug             Float
+  sep             Float
+  oct             Float
+  nov             Float
+  dec             Float
+  annualTotal     Float
+  confidenceLevel String?  // LOW | MEDIUM | HIGH
+  version         Int      @default(1)
+  approvedBy      String?
+  createdAt       DateTime @default(now())
+
+  @@map("generation_profiles")
+}
+
+model AssetDocument {
+  id        String       @id @default(cuid())
+  assetId   String
+  asset     Asset        @relation(fields: [assetId], references: [id])
+  type      DocumentType
+  fileName  String
+  fileUrl   String
+  fileSize  Int?
+  notes     String?
+  uploadedBy String?
+  createdAt DateTime     @default(now())
+
+  @@map("asset_documents")
+}
+
+// ============================================================
+// REQUEST / CASE DOMAIN
+// ============================================================
+
+model Request {
+  id                    String           @id @default(cuid())
+  caseNumber            String           @unique
+  partyId               String
+  party                 Party            @relation(fields: [partyId], references: [id])
+  assetId               String?
+  asset                 Asset?           @relation(fields: [assetId], references: [id])
+  status                RequestStatus    @default(DRAFT)
+  
+  // Initial request fields (short form)
+  plantType             PlantType
+  capacity              Float            // kW
+  province              String
+  city                  String
+  operationalStatus     OperationalStatus
+  avgMonthlyGeneration  Float?
+  hasExistingContract   Boolean          @default(false)
+  existingContractEnd   DateTime?
+  contactMobile         String
+  notes                 String?
+  
+  // Tracking
+  assignedTo            String?
+  priority              Priority         @default(NORMAL)
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+
+  reviews               RequestReview[]
+  documents             RequestDocument[]
+
+  @@map("requests")
+}
+
+model RequestReview {
+  id          String       @id @default(cuid())
+  requestId   String
+  request     Request      @relation(fields: [requestId], references: [id])
+  reviewerId  String
+  action      ReviewAction
+  fromStatus  RequestStatus
+  toStatus    RequestStatus
+  reason      String?
+  notes       String?
+  createdAt   DateTime     @default(now())
+
+  @@map("request_reviews")
+}
+
+model RequestDocument {
+  id          String       @id @default(cuid())
+  requestId   String
+  request     Request      @relation(fields: [requestId], references: [id])
+  type        DocumentType
+  fileName    String
+  fileUrl     String
+  fileSize    Int?
+  verified    Boolean      @default(false)
+  verifiedBy  String?
+  createdAt   DateTime     @default(now())
+
+  @@map("request_documents")
+}
+
+// ============================================================
+// CONTRACT DOMAIN
+// ============================================================
+
+model Contract {
+  id              String         @id @default(cuid())
+  contractNumber  String         @unique
+  type            ContractType   @default(PPA)
+  status          ContractStatus @default(DRAFT)
+  version         Int            @default(1)
+  
+  // Master Agreement fields
+  effectiveDate   DateTime
+  expirationDate  DateTime?
+  terminationDate DateTime?
+  
+  // Commercial Schedule fields (denormalized for quick access)
+  volumeType      VolumeType?
+  settlementCycle SettlementCycle?
+  paymentDueDays  Int?
+  
+  // Netting
+  nettingEnabled  Boolean        @default(false)
+  nettingGroupId  String?
+  
+  notes           String?
+  createdBy       String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  parties           ContractParty[]
+  assets            ContractAsset[]
+  schedules         CommercialSchedule[]
+  amendments        Amendment[]
+  settlements       Settlement[]
+  meteringAnnex     MeteringAnnex?
+
+  @@map("contracts")
+}
+
+model ContractParty {
+  id          String       @id @default(cuid())
+  contractId  String
+  contract    Contract     @relation(fields: [contractId], references: [id])
+  partyId     String
+  party       Party        @relation(fields: [partyId], references: [id])
+  role        ContractRole
+  isPrimary   Boolean      @default(false)
+  createdAt   DateTime     @default(now())
+
+  @@map("contract_parties")
+}
+
+model ContractAsset {
+  id          String   @id @default(cuid())
+  contractId  String
+  contract    Contract @relation(fields: [contractId], references: [id])
+  assetId     String
+  asset       Asset    @relation(fields: [assetId], references: [id])
+  sharePercent Float?  // percentage of asset capacity
+  volumeMWh   Float?   // fixed volume if applicable
+  createdAt   DateTime @default(now())
+
+  @@unique([contractId, assetId])
+  @@map("contract_assets")
+}
+
+model CommercialSchedule {
+  id              String          @id @default(cuid())
+  contractId      String
+  contract        Contract        @relation(fields: [contractId], references: [id])
+  assetId         String
+  name            String?
+  startDate       DateTime
+  endDate         DateTime
+  volumeType      VolumeType      @default(AS_PRODUCED)
+  minVolume       Float?
+  maxVolume       Float?
+  pricingPlanId   String
+  pricingPlan     PricingPlan     @relation(fields: [pricingPlanId], references: [id])
+  active          Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+
+  @@map("commercial_schedules")
+}
+
+model Amendment {
+  id          String   @id @default(cuid())
+  contractId  String
+  contract    Contract @relation(fields: [contractId], references: [id])
+  number      Int
+  title       String
+  description String?
+  changes     Json     // {field, oldValue, newValue}[]
+  effectiveDate DateTime
+  approvedBy  String?
+  status      AmendmentStatus @default(DRAFT)
+  createdAt   DateTime @default(now())
+
+  @@map("amendments")
+}
+
+model MeteringAnnex {
+  id                  String   @id @default(cuid())
+  contractId          String   @unique
+  contract            Contract @relation(fields: [contractId], references: [id])
+  primarySource       String   // METER | API | MANUAL
+  backupSource        String?
+  missingDataPolicy   String   // ESTIMATE | REJECT | USE_BACKUP
+  validationRules     Json?
+  correctionDeadline  Int?     // days after reading
+  disputeDeadline     Int?     // days after settlement
+  createdAt           DateTime @default(now())
+
+  @@map("metering_annexes")
+}
+
+// ============================================================
+// PRICING DOMAIN
+// ============================================================
+
+model PricingPlan {
+  id              String        @id @default(cuid())
+  name            String
+  code            String        @unique
+  version         Int           @default(1)
+  status          PricingStatus @default(DRAFT)
+  model           PricingModel
+  
+  // Common fields
+  currency        String        @default("IRR")
+  energyUnit      String        @default("kWh")
+  roundingMethod  String        @default("ROUND_HALF_UP")
+  roundingDigits  Int           @default(2)
+  
+  // Fixed pricing
+  fixedRate       Float?
+  escalationMethod String?      // ANNUAL_CPI | NONE
+  
+  // Market Index pricing
+  marketName      String?
+  indexName       String?
+  indexSource     String?
+  indexTimeframe  String?       // HOURLY | DAILY | MONTHLY
+  averagingMethod String?       // SIMPLE | WEIGHTED
+  multiplier      Float         @default(1.0)
+  differential    Float         @default(0)
+  missingIndexPolicy String?   // USE_PREVIOUS | USE_AVERAGE | REJECT
+  
+  // Hybrid pricing
+  fixedSharePct   Float?        // must sum to 100 with marketSharePct
+  fixedRateHybrid Float?
+  marketSharePct  Float?
+  
+  // Floor pricing
+  baseFormula     String?       // reference to another pricing or formula
+  basePricingId   String?
+  floorValue      Float?
+  ceilingValue    Float?
+  
+  // Validity
+  validFrom       DateTime
+  validTo         DateTime?
+  
+  // Audit
+  createdBy       String?
+  approvedBy      String?
+  versionNote     String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  schedules       CommercialSchedule[]
+
+  @@map("pricing_plans")
+}
+
+// ============================================================
+// METERING DOMAIN
+// ============================================================
+
+model MeterReading {
+  id              String        @id @default(cuid())
+  assetId         String
+  asset           Asset         @relation(fields: [assetId], references: [id])
+  meterId         String?
+  periodStart     DateTime
+  periodEnd       DateTime
+  
+  // Raw data
+  rawEnergy       Float         // registered energy (kWh)
+  rawPeak         Float?
+  rawOffPeak      Float?
+  
+  // Validated data
+  acceptedEnergy  Float?        // after validation
+  rejectedEnergy  Float?
+  rejectionReason String?
+  
+  // Metadata
+  source          String        @default("METER") // METER | API | MANUAL | ESTIMATED
+  qualityFlag     String?       // GOOD | SUSPECT | ESTIMATED | MISSING
+  status          ReadingStatus @default(RAW)
+  
+  // Audit
+  submittedBy     String?
+  validatedBy     String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  settlements     Settlement[]
+
+  @@unique([assetId, periodStart])
+  @@map("meter_readings")
+}
+
+// ============================================================
+// SETTLEMENT DOMAIN
+// ============================================================
+
+model Settlement {
+  id                String          @id @default(cuid())
+  settlementNumber  String          @unique
+  version           Int             @default(1)
+  
+  // References
+  contractId        String
+  contract          Contract        @relation(fields: [contractId], references: [id])
+  assetId           String
+  asset             Asset           @relation(fields: [assetId], references: [id])
+  meterReadingId    String?
+  meterReading      MeterReading?   @relation(fields: [meterReadingId], references: [id])
+  
+  // Period
+  periodStart       DateTime
+  periodEnd         DateTime
+  
+  // Energy
+  energyRegistered  Float
+  energyAccepted    Float
+  energyRejected    Float?
+  energyRejectionReason String?
+  
+  // Pricing
+  pricingPlanId     String
+  pricingVersion    String
+  unitPrice         Float
+  baseAmount        Float
+  
+  // Adjustments
+  adjustments       Json?           // [{type, amount, reason, approvedBy}]
+  adjustmentTotal   Float           @default(0)
+  
+  // Result
+  grossAmount       Float
+  deductions        Float           @default(0)
+  taxAmount         Float           @default(0)
+  netAmount         Float
+  
+  // Status & Control
+  status            SettlementStatus @default(CALCULATED)
+  calculatedBy      String?
+  confirmedBy       String?
+  confirmedAt       DateTime?
+  disputeDeadline   DateTime?
+  disputeReason     String?
+  disputeResolvedBy String?
+  disputeResolvedAt DateTime?
+  
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  invoice           Invoice?
+
+  @@map("settlements")
+}
+
+// ============================================================
+// BILLING DOMAIN
+// ============================================================
+
+model Invoice {
+  id            String        @id @default(cuid())
+  invoiceNumber String        @unique
+  settlementId  String        @unique
+  settlement    Settlement    @relation(fields: [settlementId], references: [id])
+  
+  amount        Float
+  currency      String        @default("IRR")
+  issueDate     DateTime
+  dueDate       DateTime
+  status        InvoiceStatus @default(DRAFT)
+  
+  notes         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  payments      Payment[]
+
+  @@map("invoices")
+}
+
+model Payment {
+  id            String    @id @default(cuid())
+  paymentNumber String    @unique
+  invoiceId     String
+  invoice       Invoice   @relation(fields: [invoiceId], references: [id])
+  
+  amount        Float
+  currency      String    @default("IRR")
+  paymentDate   DateTime
+  method        String?   // BANK_TRANSFER | WALLET | CHECK | ...
+  bankName      String?
+  reference     String?   // transaction ID
+  notes         String?
+  
+  // Allocation
+  allocated     Boolean   @default(false)
+  allocatedAt   DateTime?
+  
+  createdAt     DateTime  @default(now())
+
+  @@map("payments")
+}
+
+// ============================================================
+// NETTING DOMAIN
+// ============================================================
+
+model NettingGroup {
+  id          String       @id @default(cuid())
+  name        String
+  code        String       @unique
+  partyId     String
+  party       Party        @relation(fields: [partyId], references: [id])
+  mode        NettingMode  @default(OFF)
+  type        NettingType  @default(FINANCIAL)
+  currency    String       @default("IRR")
+  active      Boolean      @default(true)
+  validFrom   DateTime     @default(now())
+  validTo     DateTime?
+  
+  legal Basis String?      // contract or consent reference
+  
+  createdBy   String?
+  approvedBy  String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  contracts   Contract[]
+
+  @@map("netting_groups")
+}
+
+// ============================================================
+// AUDIT DOMAIN
+// ============================================================
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  entityType  String   // Party, Asset, Contract, Settlement, ...
+  entityId    String
+  action      String   // CREATE | UPDATE | DELETE | STATUS_CHANGE
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id])
+  changes     Json     // {field: {old: ..., new: ...}}
+  ipAddress   String?
+  userAgent   String?
+  timestamp   DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([timestamp])
+  @@map("audit_logs")
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum PartyType {
+  PERSON
+  COMPANY
+}
+
+enum PartyStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum UserRole {
+  ADMIN
+  STAFF_SUPPLY
+  STAFF_TECHNICAL
+  STAFF_LEGAL
+  STAFF_FINANCIAL
+  MANAGER
+  CUSTOMER
+  CUSTOMER_REPRESENTATIVE
+}
+
+enum RelationType {
+  SELLER
+  BUYER
+  INSTALLER
+  CONTRACTOR
+  CONSULTANT
+  MAINTAINER
+}
+
+enum RelationshipType {
+  REPRESENTATIVE     // Ali is representative of Steel Company
+  EMPLOYEE           // Maryam works for Steel Company
+  PARTNER            // Joint venture
+  AUTHORIZED_SIGNATORY
+}
+
+enum AssetType {
+  SOLAR
+  WIND
+  GAS_TURBINE
+  STEAM_TURBINE
+  CHP               // Combined Heat and Power
+  HYDRO
+  BIOGAS
+  OTHER
+}
+
+enum AssetStatus {
+  PLANNING
+  UNDER_CONSTRUCTION
+  ACTIVE
+  INACTIVE
+  DECOMMISSIONED
+}
+
+enum MeterType {
+  MAIN
+  BACKUP
+  CHECK
+}
+
+enum ReadInterval {
+  HOURLY
+  DAILY
+  MONTHLY
+}
+
+enum DataSource {
+  SMART_METER
+  API
+  MANUAL
+  SCADA
+}
+
+enum DocumentType {
+  OWNERSHIP
+  REPRESENTATION
+  LICENSE
+  CONNECTION
+  METER
+  TECHNICAL
+  LEGAL
+  FINANCIAL
+  OTHER
+}
+
+enum PlantType {
+  RESIDENTIAL
+  SMALL_COMMERCIAL
+  LARGE_COMMERCIAL
+  INDUSTRIAL
+}
+
+enum OperationalStatus {
+  ACTIVE
+  UNDER_CONSTRUCTION
+  PLANNING
+  TEMPORARILY_STOPPED
+}
+
+enum Priority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum RequestStatus {
+  DRAFT
+  SUBMITTED
+  INITIAL_REVIEW
+  NEEDS_INFORMATION
+  INFORMATION_SUBMITTED
+  OWNERSHIP_REVIEW
+  PROPOSAL_PENDING
+  PROPOSAL_READY
+  PROPOSAL_ACCEPTED
+  PROPOSAL_REJECTED
+  CONTRACT_PENDING
+  CONTRACT_SIGNED
+  ACTIVE
+  SETTLEMENT_PENDING
+  SETTLED
+  COMPLETED
+  REJECTED
+  CANCELLED
+  DEFERRED
+}
+
+enum ReviewAction {
+  APPROVE
+  REJECT
+  NEED_INFO
+  DEFER
+  ASSIGN
+  ESCALATE
+}
+
+enum ContractType {
+  PPA               // Power Purchase Agreement
+}
+
+enum ContractStatus {
+  DRAFT
+  CONFIGURED
+  INTERNAL_REVIEW
+  NEEDS_CHANGES
+  PENDING_SIGNATURE
+  SIGNED
+  ACTIVE
+  AMENDMENT_PENDING
+  TERMINATION_PENDING
+  TERMINATED
+  EXPIRED
+}
+
+enum ContractRole {
+  BUYER
+  SELLER
+  SIGNATORY
+  GUARANTOR
+}
+
+enum VolumeType {
+  AS_PRODUCED
+  FIXED
+  MIN_MAX
+}
+
+enum SettlementCycle {
+  MONTHLY
+  QUARTERLY
+}
+
+enum PricingStatus {
+  DRAFT
+  REVIEW
+  APPROVED
+  ACTIVE
+  DEPRECATED
+}
+
+enum PricingModel {
+  FIXED
+  MARKET_INDEX
+  HYBRID
+  FLOOR
+}
+
+enum ReadingStatus {
+  RAW
+  VALIDATED
+  ACCEPTED
+  REJECTED
+  ADJUSTED
+}
+
+enum SettlementStatus {
+  CALCULATED
+  DRAFT
+  UNDER_REVIEW
+  CONFIRMED
+  DISPUTED
+  ADJUSTED
+  INVOICED
+  PAID
+}
+
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  SENT
+  PAID
+  PARTIALLY_PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum AmendmentStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  ACTIVE
+  REJECTED
+}
+
+enum NettingMode {
+  OFF
+  AUTO
+  MANUAL
+}
+
+enum NettingType {
+  FINANCIAL
+  ENERGY
+}
