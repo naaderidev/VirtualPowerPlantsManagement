@@ -117,3 +117,6 @@ Commit the source code, `prisma/schema.prisma`, **all** files under `prisma/migr
 Apply `npm run db:migrate:deploy` before starting a release. Provide production environment variables through your hosting platform, use an HTTPS `NEXTAUTH_URL`, and keep `ENABLE_DEMO_LOGIN=false`. `npm run prod:build` builds the standalone application; `npm run prod:start` validates the runtime environment and starts it. The Dockerfile packages the application but does **not** run migrations or seed production users automatically. Production bootstrap of real users must be handled separately; the development seed refuses to run under `NODE_ENV=production`.
 
 The `.github/workflows/quality.yml` workflow checks lint, types, tests, schema, build, dependency audit, and a container build. Further operational details are in [`docs/deployment`](./docs/deployment/README.md).
+
+
+Created with ❤️ by *Bahar* and *GPT-5.6 Sol*
