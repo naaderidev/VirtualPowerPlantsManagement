@@ -119,4 +119,4 @@ Apply `npm run db:migrate:deploy` before starting a release. Provide production 
 The `.github/workflows/quality.yml` workflow checks lint, types, tests, schema, build, dependency audit, and a container build. Further operational details are in [`docs/deployment`](./docs/deployment/README.md).
 
 
-Created with ❤️ by *Bahar* and *GPT-5.6 Sol*
+Created with ❤️ by **Bahar** and **GPT-5.6 Sol**
