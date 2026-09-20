@@ -16,7 +16,7 @@ The application uses Next.js 16, React 19, TypeScript, Prisma 5, and MySQL. The 
 
    ```bash
    git clone <your-repository-url>
-   cd vpp
+   cd VirtualPowerPlantsManagement
    npm ci
    ```
 
