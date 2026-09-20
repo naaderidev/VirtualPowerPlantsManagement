@@ -19,9 +19,16 @@
 
 # production
 /build
+/storage/uploads/
+/backups/
+/output/
+/tmp/
+/logs/
+/public/uploads/
 
 # misc
 .DS_Store
+Thumbs.db
 *.pem
 
 # debug
@@ -32,6 +39,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel

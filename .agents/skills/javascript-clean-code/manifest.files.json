@@ -1,0 +1,192 @@
+[
+  {
+    "path": "CHANGELOG.md",
+    "bytes": 434,
+    "sha256": "153ad725b0b482c66d3c92e1c686f2d45473e82ab7420871677d367de257f3cf"
+  },
+  {
+    "path": "README.md",
+    "bytes": 1700,
+    "sha256": "5eee2a2b12a2f105b1483be3e4be50d870e6e3c2eeb1bf31c7350832fd69c2a2"
+  },
+  {
+    "path": "SKILL.md",
+    "bytes": 7171,
+    "sha256": "c60f6cf8bcc6961b122aed9495187c5d186d094f51d843985f4a4e86194b2687"
+  },
+  {
+    "path": "VERSION",
+    "bytes": 6,
+    "sha256": "59854984853104df5c353e2f681a15fc7924742f9a2e468c29af248dce45ce03"
+  },
+  {
+    "path": "checklists/code-review.md",
+    "bytes": 332,
+    "sha256": "cd323eec4e60a009bae4220aa366358eaab6a515913c7c74f85f583f0293b674"
+  },
+  {
+    "path": "checklists/implementation.md",
+    "bytes": 343,
+    "sha256": "6b1c2e99085f9c101b51cf2b134116692d26af2d0c4d54aab3055ff87a49e98e"
+  },
+  {
+    "path": "checklists/pre-implementation.md",
+    "bytes": 381,
+    "sha256": "05009e4dbf0bcb02da517164d7960a7605394e518b6e3c9a1637dde462a2a3d0"
+  },
+  {
+    "path": "checklists/refactoring.md",
+    "bytes": 407,
+    "sha256": "2c75b09ecd1352c9341f8fd7b3eaa942c620ae1fe3e523cba385765615f67092"
+  },
+  {
+    "path": "examples/architecture-examples.md",
+    "bytes": 775,
+    "sha256": "77fd5d9a00ad17e02ca3304bdd56b86a83af20ef6a534ac4a73577c3fe2b705e"
+  },
+  {
+    "path": "examples/bad-vs-good.md",
+    "bytes": 832,
+    "sha256": "43142dacad88b99c5d650f72859732eaf042f88fb67df892b28b1051bcb9c2d6"
+  },
+  {
+    "path": "examples/before-after-refactoring.md",
+    "bytes": 1518,
+    "sha256": "86bc29a9d115dfe11f3a3103994c3e5d90837762dc05c002b3ade39b3d8e6ba7"
+  },
+  {
+    "path": "manifest.json",
+    "bytes": 1252,
+    "sha256": "5086f11d3270b6414cfc3e7ed5e24861a3315722b43ad4e3d38a79cf5bdde704"
+  },
+  {
+    "path": "rules/api-design.md",
+    "bytes": 420,
+    "sha256": "1a170d3fa1519b84e799d89564fca0cbca0b093e34497a2d79b403be91888531"
+  },
+  {
+    "path": "rules/architecture.md",
+    "bytes": 511,
+    "sha256": "c32badffaeeb929d4d58a1af0c4e4b929bd39d02f42a0416863d0433b9859870"
+  },
+  {
+    "path": "rules/async.md",
+    "bytes": 558,
+    "sha256": "ede8a176f5358d8fb8f1dfe4f951add75c8e86c8e833225970bde5b941283388"
+  },
+  {
+    "path": "rules/classes.md",
+    "bytes": 394,
+    "sha256": "cceceb180b2befd7a47effde5bb58012c1654309c6b05cf9d4820b36c2dbb7b0"
+  },
+  {
+    "path": "rules/code-smells.md",
+    "bytes": 521,
+    "sha256": "6c9459cd7a87de8b3f39543dc11e6cc4f2526f8188968ef804ef79702e035b10"
+  },
+  {
+    "path": "rules/comments.md",
+    "bytes": 440,
+    "sha256": "d81c24f54ff955592f1c8a88257e55244ff41731e507969f78dd0b4445eac872"
+  },
+  {
+    "path": "rules/configuration.md",
+    "bytes": 368,
+    "sha256": "c69df19bd9964ae6d5a35b25d4870fb750c72d05f3ec0ce804a73677f7b932e9"
+  },
+  {
+    "path": "rules/control-flow.md",
+    "bytes": 397,
+    "sha256": "076c66b93295a530c0c40b7ee75f5bd35659d895b5ce58b056088220892fbe16"
+  },
+  {
+    "path": "rules/database.md",
+    "bytes": 566,
+    "sha256": "f9029e7df62313bfdedaed0a759692cd8f098016debc1997d059eba2e4299d84"
+  },
+  {
+    "path": "rules/dependencies.md",
+    "bytes": 403,
+    "sha256": "a4e8f8080801625c7c776c44feb61f1a0f6812e2c83af5be81bcff680efcf6e2"
+  },
+  {
+    "path": "rules/error-handling.md",
+    "bytes": 515,
+    "sha256": "6499fb317e73dfa90d99af81ee91dd9214e178321f501da7d2edc400117f93f2"
+  },
+  {
+    "path": "rules/formatting.md",
+    "bytes": 286,
+    "sha256": "f45b14580471da4e05da1524984498874367f96c33cb748440efcd3768cf5de4"
+  },
+  {
+    "path": "rules/functions.md",
+    "bytes": 623,
+    "sha256": "194e8907f5cff2bdf010841f499647055e4ae781e11764025b3d599f013b72f1"
+  },
+  {
+    "path": "rules/javascript.md",
+    "bytes": 464,
+    "sha256": "e0d7865684539965238cba351b068e0b42830358596fca1670f6eaf787448ad4"
+  },
+  {
+    "path": "rules/naming.md",
+    "bytes": 737,
+    "sha256": "ca9c36c66a52d9d688ee887c9e235864546ec32ad1702ca564c0589c5520da58"
+  },
+  {
+    "path": "rules/node-runtime.md",
+    "bytes": 432,
+    "sha256": "4e6e4de3444a5b0b2a2efeb4580e686e38fabc1fbec8035b9c9f2b7642a59cbd"
+  },
+  {
+    "path": "rules/objects-and-data-structures.md",
+    "bytes": 486,
+    "sha256": "39df9a830195bf50eba6ee16f0aed999cee2291e15465a592e13a8b8ce654cac"
+  },
+  {
+    "path": "rules/observability.md",
+    "bytes": 409,
+    "sha256": "c3f17b62d4617625f48c0a13b80d5ec8757aed3fd1914a7c0abdaaf1f1e4892e"
+  },
+  {
+    "path": "rules/performance.md",
+    "bytes": 501,
+    "sha256": "86a5dae83c3869e293d1f2b98fbf33ca44d396302a27571ba8e3c57f862afe4a"
+  },
+  {
+    "path": "rules/resilience.md",
+    "bytes": 490,
+    "sha256": "3074625486042b7a1ee8a300f2669ea05614a10fd5bec1a36b459c7bd73557cd"
+  },
+  {
+    "path": "rules/security.md",
+    "bytes": 569,
+    "sha256": "65bf8387c80f9ce4b86d8f0c58083a8e178b81929e2f1e72db8e59bc8391015f"
+  },
+  {
+    "path": "rules/side-effects.md",
+    "bytes": 468,
+    "sha256": "0ec53a438deefc32e3855d4c29155e7ee3253ff2977d760ba2b5cc9804e70245"
+  },
+  {
+    "path": "rules/solid.md",
+    "bytes": 505,
+    "sha256": "ff5a049e246f0a72e736444a0e91e3665d9f89a6f9fdeb68544008059a57147e"
+  },
+  {
+    "path": "rules/testing.md",
+    "bytes": 580,
+    "sha256": "f2440e2655f9b30e5089f66ba457b246c3976c00a3a98d6ce0d48324b81ca101"
+  },
+  {
+    "path": "rules/typescript.md",
+    "bytes": 594,
+    "sha256": "5aa58713cec4b4d65856ae973ac216a56c04390f05249fa99440f3aa2c4373d4"
+  },
+  {
+    "path": "rules/variables.md",
+    "bytes": 410,
+    "sha256": "57398b79d87f127ea3925c5d3aa9a578e140d9e612d4d94446a1b8fb89a25394"
+  }
+]

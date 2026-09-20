@@ -1,0 +1,1386 @@
+// VPP — Prisma Schema
+// Phase 1: Foundation
+// Database: MySQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// NEXTAUTH MODELS
+// ============================================================
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ============================================================
+// PARTY DOMAIN
+// ============================================================
+
+model Party {
+  id             String      @id @default(cuid())
+  systemCode     String?     @unique
+  type           PartyType
+  displayName    String
+  economicCode   String?
+  nationalId     String?
+  registrationNo String?
+  taxId          String?
+  phone          String?
+  email          String?
+  address        String?
+  status         PartyStatus @default(ACTIVE)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  users              User[]
+  assets             Asset[]             @relation("AssetOwner")
+  businessRelations  BusinessRelation[]
+  relationshipsFrom  Relationship[]      @relation("RelFrom")
+  relationshipsTo    Relationship[]      @relation("RelTo")
+  contractParties    ContractParty[]
+  contractSignatures ContractSignature[]
+  nettingGroups      NettingGroup[]
+  nettingStatements  NettingStatement[]
+  requests           Request[]
+  notifications      Notification[]
+
+  @@map("parties")
+}
+
+model User {
+  id        String    @id @default(cuid())
+  partyId   String?
+  party     Party?    @relation(fields: [partyId], references: [id])
+  name      String
+  mobile    String    @unique
+  email     String?
+  password  String?
+  role      UserRole  @default(CUSTOMER)
+  active    Boolean   @default(true)
+  lastLogin DateTime?
+  createdAt DateTime  @default(now())
+
+  accounts              Account[]
+  sessions              Session[]
+  auditLogs             AuditLog[]
+  initiatedRequests     Request[]           @relation("RequestInitiator")
+  requestReviews        RequestReview[]
+  contractReviews       ContractReview[]
+  contractSignatures    ContractSignature[]
+  proposalReviews       ProposalReview[]
+  notifications         Notification[]
+  relationshipsCreated  Relationship[]      @relation("RelationshipCreatedBy")
+  relationshipsRevoked  Relationship[]      @relation("RelationshipRevokedBy")
+  nettingBatchesCreated NettingBatch[]      @relation("NettingBatchCreatedBy")
+  nettingApprovals      NettingApproval[]
+  nettingStatementsCreated NettingStatement[] @relation("NettingStatementCreatedBy")
+  uploadedRequestDocuments RequestDocument[] @relation("RequestDocumentUploadedBy")
+
+  @@map("users")
+}
+
+model BusinessRelation {
+  id        String       @id @default(cuid())
+  partyId   String
+  party     Party        @relation(fields: [partyId], references: [id])
+  type      RelationType
+  startDate DateTime
+  endDate   DateTime?
+  notes     String?
+  createdAt DateTime     @default(now())
+
+  @@map("business_relations")
+}
+
+model Relationship {
+  id                 String           @id @default(cuid())
+  fromEntityId       String
+  fromEntity         Party            @relation("RelFrom", fields: [fromEntityId], references: [id])
+  toEntityId         String
+  toEntity           Party            @relation("RelTo", fields: [toEntityId], references: [id])
+  type               RelationshipType
+  active             Boolean          @default(true)
+  validFrom          DateTime         @default(now())
+  validTo            DateTime?
+  authorityReference String?
+  notes              String?          @db.VarChar(500)
+  metadata           Json?
+  createdById        String?
+  createdBy          User?            @relation("RelationshipCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  revokedById        String?
+  revokedBy          User?            @relation("RelationshipRevokedBy", fields: [revokedById], references: [id], onDelete: SetNull)
+  revokedAt          DateTime?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  @@unique([fromEntityId, toEntityId, type, validFrom])
+  @@index([fromEntityId, type, active, validFrom, validTo])
+  @@index([toEntityId, type, active])
+  @@index([createdById])
+  @@index([revokedById])
+  @@map("relationships")
+}
+
+// ============================================================
+// ASSET DOMAIN
+// ============================================================
+
+model Asset {
+  id               String             @id @default(cuid())
+  ownerId          String
+  owner            Party              @relation("AssetOwner", fields: [ownerId], references: [id])
+  internalCode     String?            @unique
+  name             String
+  type             AssetType
+  status           AssetStatus        @default(PLANNING)
+  province         String
+  city             String
+  address          String?
+  latitude         Float?
+  longitude        Float?
+  gridCompany      String?
+  connectionPoint  String?
+  capacityNominal  Float
+  capacitySellable Float
+  ownershipPercent Float              @default(100)
+  requesterRole    AssetRequesterRole @default(OWNER)
+  connectionStatus ConnectionStatus?
+  technology       String?
+  operationalDate  DateTime?
+  connectionDate   DateTime?
+  archivedAt       DateTime?
+  archivedById     String?
+  archiveReason    String?            @db.VarChar(500)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  meters                    Meter[]
+  generationProfile         GenerationProfile?
+  generationProfileVersions GenerationProfileVersion[]
+  assetDocuments            AssetDocument[]
+  contractAssets            ContractAsset[]
+  commercialSchedules       CommercialSchedule[]
+  settlements               Settlement[]
+  meterReadings             MeterReading[]
+  requests                  Request[]
+
+  @@map("assets")
+  @@index([archivedAt])
+}
+
+model Meter {
+  id           String       @id @default(cuid())
+  assetId      String
+  asset        Asset        @relation(fields: [assetId], references: [id])
+  type         MeterType    @default(MAIN)
+  serialNumber String
+  manufacturer String?
+  model        String?
+  readInterval ReadInterval @default(DAILY)
+  dataSource   DataSource   @default(SMART_METER)
+  installDate  DateTime?
+  active       Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+
+  readings MeterReading[]
+
+  @@map("meters")
+}
+
+model GenerationProfile {
+  id              String   @id @default(cuid())
+  assetId         String   @unique
+  asset           Asset    @relation(fields: [assetId], references: [id])
+  year            Int
+  method          String
+  source          String?
+  jan             Float
+  feb             Float
+  mar             Float
+  apr             Float
+  may             Float
+  jun             Float
+  jul             Float
+  aug             Float
+  sep             Float
+  oct             Float
+  nov             Float
+  dec             Float
+  annualTotal     Float
+  confidenceLevel String?
+  version         Int      @default(1)
+  approvedBy      String?
+  createdAt       DateTime @default(now())
+
+  @@map("generation_profiles")
+}
+
+model GenerationProfileVersion {
+  id              String                  @id @default(cuid())
+  assetId         String
+  asset           Asset                   @relation(fields: [assetId], references: [id])
+  year            Int
+  method          String
+  source          String?
+  jan             Float
+  feb             Float
+  mar             Float
+  apr             Float
+  may             Float
+  jun             Float
+  jul             Float
+  aug             Float
+  sep             Float
+  oct             Float
+  nov             Float
+  dec             Float
+  annualTotal     Float
+  confidenceLevel String?
+  version         Int
+  status          GenerationProfileStatus @default(DRAFT)
+  createdBy       String
+  submittedAt     DateTime?
+  approvedBy      String?
+  approvedAt      DateTime?
+  createdAt       DateTime                @default(now())
+
+  @@unique([assetId, year, version])
+  @@index([assetId, status, createdAt])
+  @@map("generation_profile_versions")
+}
+
+model AssetDocument {
+  id         String       @id @default(cuid())
+  assetId    String
+  asset      Asset        @relation(fields: [assetId], references: [id])
+  type       DocumentType
+  fileName   String
+  fileUrl    String
+  fileSize   Int?
+  notes      String?
+  uploadedBy String?
+  createdAt  DateTime     @default(now())
+
+  @@map("asset_documents")
+}
+
+// ============================================================
+// REQUEST / CASE DOMAIN
+// ============================================================
+
+model Request {
+  id                   String            @id @default(cuid())
+  caseNumber           String            @unique
+  partyId              String
+  party                Party             @relation(fields: [partyId], references: [id])
+  initiatorId          String?
+  initiator            User?             @relation("RequestInitiator", fields: [initiatorId], references: [id], onDelete: SetNull)
+  assetId              String?            @unique
+  asset                Asset?            @relation(fields: [assetId], references: [id])
+  status               RequestStatus     @default(DRAFT)
+  plantType            PlantType
+  capacity             Float
+  province             String
+  city                 String
+  operationalStatus    OperationalStatus
+  avgMonthlyGeneration Float?
+  hasExistingContract  Boolean           @default(false)
+  existingContractStart DateTime?
+  existingContractEnd  DateTime?
+  existingContractCounterparty String?
+  existingContractCommittedCapacity Float?
+  existingContractExclusive Boolean      @default(false)
+  existingContractRestrictions String?
+  existingContractRightToSellConfirmed Boolean @default(false)
+  contactMobile        String
+  notes                String?
+  assignedTo           String?
+  priority             Priority          @default(NORMAL)
+  deferredUntil        DateTime?
+  contractId           String?
+  contract             Contract?         @relation(fields: [contractId], references: [id])
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+
+  reviews   RequestReview[]
+  documents RequestDocument[]
+  proposals Proposal[]
+
+  @@index([initiatorId])
+  @@index([partyId, createdAt])
+  @@map("requests")
+}
+
+model RequestReview {
+  id         String        @id @default(cuid())
+  requestId  String
+  request    Request       @relation(fields: [requestId], references: [id])
+  reviewerId String
+  reviewer   User?         @relation(fields: [reviewerId], references: [id])
+  action     ReviewAction
+  fromStatus RequestStatus
+  toStatus   RequestStatus
+  reason     String?
+  notes      String?       @db.VarChar(500)
+  createdAt  DateTime      @default(now())
+
+  @@map("request_reviews")
+}
+
+model RequestDocument {
+  id         String       @id @default(cuid())
+  requestId  String
+  request    Request      @relation(fields: [requestId], references: [id])
+  type       DocumentType
+  fileName   String
+  fileUrl    String
+  fileSize   Int?
+  verified   Boolean      @default(false)
+  verifiedBy String?
+  uploadedById String?
+  uploadedBy   User?        @relation("RequestDocumentUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
+  createdAt  DateTime     @default(now())
+
+  @@unique([requestId, type])
+  @@index([uploadedById])
+  @@map("request_documents")
+}
+
+// ============================================================
+// PROPOSAL DOMAIN
+// ============================================================
+
+model Proposal {
+  id        String  @id @default(cuid())
+  requestId String
+  request   Request @relation(fields: [requestId], references: [id])
+
+  // قیمت پیشنهادی
+  pricePerKwh Float // قیمت هر کیلووات ساعت (ریال)
+  currency    String @default("IRR")
+
+  // شرایط
+  minVolume Float? // حداقل حجم خرید (کیلووات ساعت در ماه)
+  maxVolume Float? // حداکثر حجم خرید (کیلووات ساعت در ماه)
+  duration  Int // مدت قرارداد (ماه)
+
+  // توضیحات
+  notes      String? // توضیحات ادمین
+  validUntil DateTime // تاریخ اعتبار پیشنهاد
+
+  // وضعیت
+  status       ProposalStatus @default(PENDING)
+  customerNote String? // یادداشت مشتری
+
+  // ردیابی
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  reviews ProposalReview[]
+
+  @@map("proposals")
+}
+
+model ProposalReview {
+  id         String   @id @default(cuid())
+  proposalId String
+  proposal   Proposal @relation(fields: [proposalId], references: [id])
+  reviewerId String
+  reviewer   User?    @relation(fields: [reviewerId], references: [id])
+  action     String
+  notes      String?  @db.VarChar(500)
+  createdAt  DateTime @default(now())
+
+  @@map("proposal_reviews")
+}
+
+enum ProposalStatus {
+  PENDING // در انتظار بررسی مشتری
+  ACCEPTED // پذیرفته شده
+  REJECTED // رد شده
+  EXPIRED // منقضی شده
+  CANCELLED // لغو شده
+}
+
+// ============================================================
+// CONTRACT DOMAIN
+// ============================================================
+
+model Contract {
+  id              String           @id @default(cuid())
+  contractNumber  String           @unique
+  type            ContractType     @default(PPA)
+  status          ContractStatus   @default(DRAFT)
+  version         Int              @default(1)
+  effectiveDate   DateTime
+  expirationDate  DateTime?
+  terminationDate DateTime?
+  signedAt        DateTime?
+  activatedAt     DateTime?
+  volumeType      VolumeType?
+  settlementCycle SettlementCycle?
+  paymentDueDays  Int?
+  nettingEnabled  Boolean          @default(false)
+  nettingGroupId  String?
+  nettingGroup    NettingGroup?    @relation(fields: [nettingGroupId], references: [id])
+  notes           String?
+  createdBy       String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  parties       ContractParty[]
+  assets        ContractAsset[]
+  schedules     CommercialSchedule[]
+  amendments    Amendment[]
+  settlements   Settlement[]
+  meteringAnnex MeteringAnnex?
+  requests      Request[]
+  reviews       ContractReview[]
+  signatures    ContractSignature[]
+  versions      ContractVersion[]
+
+  @@map("contracts")
+}
+
+model ContractParty {
+  id         String       @id @default(cuid())
+  contractId String
+  contract   Contract     @relation(fields: [contractId], references: [id])
+  partyId    String
+  party      Party        @relation(fields: [partyId], references: [id])
+  role       ContractRole
+  isPrimary  Boolean      @default(false)
+  createdAt  DateTime     @default(now())
+
+  @@map("contract_parties")
+}
+
+model ContractSignature {
+  id                String   @id @default(cuid())
+  contractId        String
+  contract          Contract @relation(fields: [contractId], references: [id])
+  partyId           String
+  party             Party    @relation(fields: [partyId], references: [id])
+  signedById        String
+  signedBy          User     @relation(fields: [signedById], references: [id])
+  evidenceReference String
+  signedAt          DateTime @default(now())
+
+  @@unique([contractId, partyId])
+  @@index([partyId])
+  @@index([signedById])
+  @@map("contract_signatures")
+}
+
+model ContractVersion {
+  id         String   @id @default(cuid())
+  contractId String
+  contract   Contract @relation(fields: [contractId], references: [id])
+  version    Int
+  snapshot   Json
+  createdBy  String?
+  createdAt  DateTime @default(now())
+
+  @@unique([contractId, version])
+  @@map("contract_versions")
+}
+
+model ContractAsset {
+  id           String   @id @default(cuid())
+  contractId   String
+  contract     Contract @relation(fields: [contractId], references: [id])
+  assetId      String
+  asset        Asset    @relation(fields: [assetId], references: [id])
+  sharePercent Float?
+  volumeMWh    Float?
+  createdAt    DateTime @default(now())
+
+  @@unique([contractId, assetId])
+  @@map("contract_assets")
+}
+
+model ContractReview {
+  id         String          @id @default(cuid())
+  contractId String
+  contract   Contract        @relation(fields: [contractId], references: [id])
+  reviewerId String
+  reviewer   User?           @relation(fields: [reviewerId], references: [id])
+  action     String
+  fromStatus ContractStatus?
+  toStatus   ContractStatus?
+  notes      String?         @db.VarChar(500)
+  createdAt  DateTime        @default(now())
+
+  @@map("contract_reviews")
+}
+
+model CommercialSchedule {
+  id              String          @id @default(cuid())
+  contractId      String
+  contract        Contract        @relation(fields: [contractId], references: [id])
+  assetId         String
+  asset           Asset           @relation(fields: [assetId], references: [id])
+  name            String?
+  startDate       DateTime
+  endDate         DateTime
+  volumeType      VolumeType      @default(AS_PRODUCED)
+  minVolume       Float?
+  maxVolume       Float?
+  pricingPlanId   String
+  pricingPlan     PricingPlan     @relation(fields: [pricingPlanId], references: [id])
+  settlementCycle SettlementCycle @default(MONTHLY)
+  paymentDueDays  Int             @default(30)
+  nettingEnabled  Boolean         @default(false)
+  active          Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+
+  settlements Settlement[]
+
+  @@unique([contractId, assetId])
+  @@index([assetId])
+  @@map("commercial_schedules")
+}
+
+model Amendment {
+  id            String          @id @default(cuid())
+  contractId    String
+  contract      Contract        @relation(fields: [contractId], references: [id])
+  number        Int
+  title         String
+  description   String?
+  changes       Json
+  effectiveDate DateTime
+  approvedBy    String?
+  status        AmendmentStatus @default(DRAFT)
+  createdAt     DateTime        @default(now())
+
+  @@map("amendments")
+}
+
+model MeteringAnnex {
+  id                 String   @id @default(cuid())
+  contractId         String   @unique
+  contract           Contract @relation(fields: [contractId], references: [id])
+  primarySource      String
+  backupSource       String?
+  missingDataPolicy  String
+  validationRules    Json?
+  correctionDeadline Int?
+  disputeDeadline    Int?
+  createdAt          DateTime @default(now())
+
+  @@map("metering_annexes")
+}
+
+// ============================================================
+// PRICING DOMAIN
+// ============================================================
+
+model PricingPlan {
+  id                 String        @id @default(cuid())
+  name               String
+  code               String        @unique
+  version            Int           @default(1)
+  status             PricingStatus @default(DRAFT)
+  model              PricingModel
+  currency           String        @default("IRR")
+  energyUnit         String        @default("kWh")
+  roundingMethod     String        @default("ROUND_HALF_UP")
+  roundingDigits     Int           @default(2)
+  fixedRate          Float?
+  escalationMethod   String?
+  marketName         String?
+  indexName          String?
+  indexSource        String?
+  indexTimeframe     String?
+  averagingMethod    String?
+  multiplier         Float         @default(1.0)
+  differential       Float         @default(0)
+  missingIndexPolicy String?
+  fixedSharePct      Float?
+  fixedRateHybrid    Float?
+  marketSharePct     Float?
+  baseFormula        String?
+  basePricingId      String?
+  floorValue         Float?
+  ceilingValue       Float?
+  validFrom          DateTime
+  validTo            DateTime?
+  createdBy          String?
+  approvedBy         String?
+  versionNote        String?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  deprecatedAt       DateTime?
+
+  schedules               CommercialSchedule[]
+  marketIndexObservations MarketIndexObservation[]
+  settlements             Settlement[]
+
+  @@map("pricing_plans")
+}
+
+model MarketIndexObservation {
+  id            String      @id @default(cuid())
+  pricingPlanId String
+  pricingPlan   PricingPlan @relation(fields: [pricingPlanId], references: [id])
+  period        String
+  value         Decimal     @db.Decimal(24, 6)
+  indexName     String
+  source        String
+  timezone      String
+  observedAt    DateTime
+  createdBy     String?
+  createdAt     DateTime    @default(now())
+
+  @@unique([pricingPlanId, period])
+  @@index([indexName, period])
+  @@map("market_index_observations")
+}
+
+model FinancialConfiguration {
+  id            String    @id @default(cuid())
+  name          String
+  taxRate       Decimal   @db.Decimal(9, 6)
+  deductionRate Decimal   @default(0) @db.Decimal(9, 6)
+  validFrom     DateTime
+  validTo       DateTime?
+  active        Boolean   @default(true)
+  approvedBy    String
+  createdBy     String
+  createdAt     DateTime  @default(now())
+
+  settlements Settlement[]
+
+  @@index([active, validFrom, validTo])
+  @@map("financial_configurations")
+}
+
+// ============================================================
+// METERING DOMAIN
+// ============================================================
+
+model MeterReading {
+  id              String        @id @default(cuid())
+  assetId         String
+  asset           Asset         @relation(fields: [assetId], references: [id])
+  meterId         String?
+  meter           Meter?        @relation(fields: [meterId], references: [id])
+  periodStart     DateTime
+  periodEnd       DateTime
+  rawEnergy       Float
+  rawPeak         Float?
+  rawOffPeak      Float?
+  acceptedEnergy  Float?
+  rejectedEnergy  Float?
+  rejectionReason String?
+  source          String        @default("METER")
+  qualityFlag     String?
+  status          ReadingStatus @default(RAW)
+  submittedBy     String?
+  validatedBy     String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  settlements        Settlement[]
+  settlementReadings SettlementReading[]
+
+  @@unique([assetId, periodStart])
+  @@index([assetId, status, periodStart, periodEnd])
+  @@map("meter_readings")
+}
+
+// ============================================================
+// SETTLEMENT DOMAIN
+// ============================================================
+
+model Settlement {
+  id                       String                  @id @default(cuid())
+  settlementNumber         String                  @unique
+  version                  Int                     @default(1)
+  contractId               String
+  contract                 Contract                @relation(fields: [contractId], references: [id])
+  assetId                  String
+  asset                    Asset                   @relation(fields: [assetId], references: [id])
+  meterReadingId           String?
+  meterReading             MeterReading?           @relation(fields: [meterReadingId], references: [id])
+  readings                 SettlementReading[]
+  scheduleId               String?
+  schedule                 CommercialSchedule?     @relation(fields: [scheduleId], references: [id])
+  financialConfigurationId String?
+  financialConfiguration   FinancialConfiguration? @relation(fields: [financialConfigurationId], references: [id])
+  supersedesId             String?
+  supersedes               Settlement?             @relation("SettlementRevisions", fields: [supersedesId], references: [id])
+  revisions                Settlement[]            @relation("SettlementRevisions")
+  periodStart              DateTime
+  periodEnd                DateTime
+  energyRegistered         Float
+  energyAccepted           Float
+  energyRejected           Float?
+  energyRejectionReason    String?
+  pricingPlanId            String
+  pricingPlan              PricingPlan             @relation(fields: [pricingPlanId], references: [id])
+  pricingVersion           String
+  calculationSnapshot      Json?
+  formula                  String?                 @db.Text
+  unitPrice                Float
+  baseAmount               Float
+  adjustments              Json?
+  adjustmentTotal          Float                   @default(0)
+  grossAmount              Float
+  deductions               Float                   @default(0)
+  taxAmount                Float                   @default(0)
+  netAmount                Float
+  status                   SettlementStatus        @default(CALCULATED)
+  calculatedBy             String?
+  confirmedBy              String?
+  confirmedAt              DateTime?
+  disputeDeadline          DateTime?
+  disputeReason            String?
+  disputeResolvedBy        String?
+  disputeResolvedAt        DateTime?
+  createdAt                DateTime                @default(now())
+  updatedAt                DateTime                @updatedAt
+
+  invoice      Invoice?
+  nettingItems NettingItem[]
+
+  @@unique([contractId, assetId, periodStart, periodEnd, version])
+  @@index([supersedesId])
+  @@index([scheduleId])
+  @@map("settlements")
+}
+
+model SettlementReading {
+  settlementId           String
+  settlement             Settlement   @relation(fields: [settlementId], references: [id])
+  meterReadingId         String
+  meterReading           MeterReading @relation(fields: [meterReadingId], references: [id])
+  acceptedEnergySnapshot Decimal      @db.Decimal(24, 6)
+  createdAt              DateTime     @default(now())
+
+  @@id([settlementId, meterReadingId])
+  @@index([meterReadingId])
+  @@map("settlement_readings")
+}
+
+// ============================================================
+// BILLING DOMAIN
+// ============================================================
+
+model Invoice {
+  id                String        @id @default(cuid())
+  invoiceNumber     String        @unique
+  settlementId      String        @unique
+  settlement        Settlement    @relation(fields: [settlementId], references: [id])
+  amount            Float
+  amountDecimal     Decimal?      @db.Decimal(24, 0)
+  paidAmount        Decimal       @default(0) @db.Decimal(24, 0)
+  allocationVersion Int           @default(0)
+  currency          String        @default("IRR")
+  issueDate         DateTime
+  dueDate           DateTime
+  status            InvoiceStatus @default(DRAFT)
+  notes             String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  payments    Payment[]
+  allocations PaymentAllocation[]
+
+  @@map("invoices")
+}
+
+model Payment {
+  id                String        @id @default(cuid())
+  paymentNumber     String        @unique
+  invoiceId         String?
+  invoice           Invoice?      @relation(fields: [invoiceId], references: [id])
+  amount            Float
+  amountDecimal     Decimal       @db.Decimal(24, 0)
+  currency          String        @default("IRR")
+  paymentDate       DateTime
+  method            String?
+  bankName          String?
+  reference         String?
+  idempotencyKey    String        @unique
+  status            PaymentStatus @default(PENDING)
+  allocationVersion Int           @default(0)
+  createdBy         String
+  confirmedBy       String?
+  confirmedAt       DateTime?
+  rejectionReason   String?
+  notes             String?
+  allocated         Boolean       @default(false)
+  allocatedAt       DateTime?
+  createdAt         DateTime      @default(now())
+
+  allocations PaymentAllocation[]
+  nettingAllocations NettingPaymentAllocation[]
+
+  @@index([status, paymentDate])
+  @@map("payments")
+}
+
+model PaymentAllocation {
+  id             String   @id @default(cuid())
+  paymentId      String
+  payment        Payment  @relation(fields: [paymentId], references: [id])
+  invoiceId      String
+  invoice        Invoice  @relation(fields: [invoiceId], references: [id])
+  amount         Decimal  @db.Decimal(24, 0)
+  idempotencyKey String   @unique
+  createdBy      String
+  createdAt      DateTime @default(now())
+
+  @@index([paymentId])
+  @@index([invoiceId])
+  @@map("payment_allocations")
+}
+
+model NettingStatement {
+  id                String                 @id @default(cuid())
+  statementNumber   String                 @unique
+  batchId           String                 @unique
+  batch             NettingBatch           @relation(fields: [batchId], references: [id])
+  partyId           String
+  party             Party                  @relation(fields: [partyId], references: [id])
+  direction         NettingDirection
+  amount            Decimal                @db.Decimal(24, 0)
+  paidAmount        Decimal                @default(0) @db.Decimal(24, 0)
+  allocationVersion Int                    @default(0)
+  currency          String                 @default("IRR")
+  status            NettingStatementStatus @default(ISSUED)
+  issueDate         DateTime
+  dueDate           DateTime
+  snapshot          Json
+  idempotencyKey    String                 @unique
+  createdById       String
+  createdBy         User                   @relation("NettingStatementCreatedBy", fields: [createdById], references: [id])
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  allocations NettingPaymentAllocation[]
+
+  @@index([partyId, status, dueDate])
+  @@index([createdById])
+  @@map("netting_statements")
+}
+
+model NettingPaymentAllocation {
+  id             String           @id @default(cuid())
+  paymentId      String
+  payment        Payment          @relation(fields: [paymentId], references: [id])
+  statementId    String
+  statement      NettingStatement @relation(fields: [statementId], references: [id])
+  amount         Decimal          @db.Decimal(24, 0)
+  idempotencyKey String           @unique
+  createdBy      String
+  createdAt      DateTime         @default(now())
+
+  @@index([paymentId])
+  @@index([statementId])
+  @@map("netting_payment_allocations")
+}
+
+// ============================================================
+// NETTING DOMAIN
+// ============================================================
+
+model NettingGroup {
+  id         String      @id @default(cuid())
+  name       String
+  code       String      @unique
+  partyId    String
+  party      Party       @relation(fields: [partyId], references: [id])
+  mode       NettingMode @default(OFF)
+  type       NettingType @default(FINANCIAL)
+  currency   String      @default("IRR")
+  active     Boolean     @default(true)
+  validFrom  DateTime    @default(now())
+  validTo    DateTime?
+  legalBasis String?
+  createdBy  String?
+  approvedBy String?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  contracts Contract[]
+  batches   NettingBatch[]
+
+  @@map("netting_groups")
+}
+
+model NettingBatch {
+  id                  String             @id @default(cuid())
+  batchNumber         String             @unique
+  groupId             String
+  group               NettingGroup       @relation(fields: [groupId], references: [id])
+  periodStart         DateTime
+  periodEnd           DateTime
+  currency            String             @default("IRR")
+  status              NettingBatchStatus @default(DRAFT)
+  totalReceivable     Decimal            @default(0) @db.Decimal(24, 0)
+  totalPayable        Decimal            @default(0) @db.Decimal(24, 0)
+  netAmount           Decimal            @default(0) @db.Decimal(24, 0)
+  calculationSnapshot Json?
+  idempotencyKey      String             @unique
+  createdById         String
+  createdBy           User               @relation("NettingBatchCreatedBy", fields: [createdById], references: [id])
+  submittedAt         DateTime?
+  approvedAt          DateTime?
+  postedAt            DateTime?
+  rejectionReason     String?            @db.VarChar(500)
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  items     NettingItem[]
+  approvals NettingApproval[]
+  statement NettingStatement?
+
+  @@index([groupId, status, periodStart, periodEnd])
+  @@index([createdById])
+  @@map("netting_batches")
+}
+
+model NettingItem {
+  id                 String           @id @default(cuid())
+  batchId            String
+  batch              NettingBatch     @relation(fields: [batchId], references: [id])
+  settlementId       String
+  settlement         Settlement       @relation(fields: [settlementId], references: [id])
+  direction          NettingDirection
+  amount             Decimal          @db.Decimal(24, 0)
+  currency           String
+  settlementSnapshot Json
+  eligibilityLockKey String?          @unique
+  releasedAt         DateTime?
+  createdAt          DateTime         @default(now())
+
+  @@unique([batchId, settlementId])
+  @@index([settlementId])
+  @@map("netting_items")
+}
+
+model NettingApproval {
+  id         String                  @id @default(cuid())
+  batchId    String
+  batch      NettingBatch            @relation(fields: [batchId], references: [id])
+  type       NettingApprovalType
+  decision   NettingApprovalDecision
+  reviewerId String
+  reviewer   User                    @relation(fields: [reviewerId], references: [id])
+  notes      String?                 @db.VarChar(500)
+  decidedAt  DateTime                @default(now())
+
+  @@unique([batchId, type])
+  @@index([reviewerId])
+  @@map("netting_approvals")
+}
+
+// ============================================================
+// AUDIT DOMAIN
+// ============================================================
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  entityType    String
+  entityId      String
+  action        String
+  userId        String?
+  user          User?    @relation(fields: [userId], references: [id])
+  changes       Json
+  ipAddress     String?
+  userAgent     String?
+  correlationId String?
+  timestamp     DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([timestamp])
+  @@index([correlationId])
+  @@map("audit_logs")
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum PartyType {
+  PERSON
+  COMPANY
+}
+
+enum PartyStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum UserRole {
+  ADMIN
+  STAFF_SUPPLY
+  STAFF_TECHNICAL
+  STAFF_LEGAL
+  STAFF_FINANCIAL
+  MANAGER
+  CUSTOMER
+  CUSTOMER_REPRESENTATIVE
+}
+
+enum RelationType {
+  SELLER
+  BUYER
+  INSTALLER
+  CONTRACTOR
+  CONSULTANT
+  MAINTAINER
+}
+
+enum RelationshipType {
+  REPRESENTATIVE
+  EMPLOYEE
+  PARTNER
+  AUTHORIZED_SIGNATORY
+}
+
+enum AssetType {
+  SOLAR
+  WIND
+  GAS_TURBINE
+  STEAM_TURBINE
+  CHP
+  HYDRO
+  BIOGAS
+  OTHER
+}
+
+enum AssetStatus {
+  PLANNING
+  UNDER_CONSTRUCTION
+  ACTIVE
+  INACTIVE
+  DECOMMISSIONED
+}
+
+enum MeterType {
+  MAIN
+  BACKUP
+  CHECK
+}
+
+enum ReadInterval {
+  HOURLY
+  DAILY
+  MONTHLY
+}
+
+enum DataSource {
+  SMART_METER
+  API
+  MANUAL
+  SCADA
+}
+
+enum DocumentType {
+  OWNERSHIP
+  REPRESENTATION
+  LICENSE
+  CONNECTION
+  METER
+  TECHNICAL
+  LEGAL
+  FINANCIAL
+  OTHER
+}
+
+enum PlantType {
+  SOLAR
+  WIND
+  GAS_TURBINE
+  STEAM_TURBINE
+  CHP
+  HYDRO
+  BIOGAS
+  OTHER
+}
+
+enum OperationalStatus {
+  ACTIVE
+  UNDER_CONSTRUCTION
+  PLANNING
+  TEMPORARILY_STOPPED
+}
+
+enum Priority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum RequestStatus {
+  DRAFT
+  SUBMITTED
+  INITIAL_REVIEW
+  NEEDS_INFORMATION
+  INFORMATION_SUBMITTED
+  APPROVED
+  OWNERSHIP_REVIEW
+  PROPOSAL_PENDING
+  PROPOSAL_READY
+  PROPOSAL_ACCEPTED
+  PROPOSAL_REJECTED
+  CONTRACT_PENDING
+  CONTRACT_SIGNED
+  ACTIVE
+  SETTLEMENT_PENDING
+  SETTLED
+  COMPLETED
+  REJECTED
+  CANCELLED
+  DEFERRED
+}
+
+enum ReviewAction {
+  START_REVIEW
+  APPROVE
+  REJECT
+  NEED_INFO
+  DEFER
+  SUBMIT_INFORMATION
+  START_OWNERSHIP_REVIEW
+  START_PROPOSAL
+  CANCEL
+  ASSIGN
+  ESCALATE
+  NOTE
+}
+
+enum AssetRequesterRole {
+  OWNER
+  REPRESENTATIVE
+}
+
+enum ConnectionStatus {
+  CONNECTED
+  PENDING
+  NOT_CONNECTED
+}
+
+enum ContractType {
+  PPA
+}
+
+enum ContractStatus {
+  DRAFT
+  CONFIGURED
+  INTERNAL_REVIEW
+  NEEDS_CHANGES
+  PENDING_SIGNATURE
+  SIGNED
+  ACTIVE
+  AMENDMENT_PENDING
+  TERMINATION_PENDING
+  TERMINATED
+  EXPIRED
+  REJECTED
+  CANCELLED
+}
+
+enum ContractRole {
+  BUYER
+  SELLER
+  SIGNATORY
+  GUARANTOR
+}
+
+enum VolumeType {
+  AS_PRODUCED
+  FIXED
+  MIN_MAX
+}
+
+enum SettlementCycle {
+  MONTHLY
+  QUARTERLY
+}
+
+enum PricingStatus {
+  DRAFT
+  REVIEW
+  APPROVED
+  ACTIVE
+  DEPRECATED
+}
+
+enum PricingModel {
+  FIXED
+  MARKET_INDEX
+  HYBRID
+  FLOOR
+}
+
+enum ReadingStatus {
+  RAW
+  VALIDATED
+  ACCEPTED
+  REJECTED
+  ADJUSTED
+}
+
+enum SettlementStatus {
+  CALCULATED
+  DRAFT
+  UNDER_REVIEW
+  CONFIRMED
+  DISPUTED
+  ADJUSTED
+  INVOICED
+  PAID
+}
+
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  SENT
+  PAID
+  PARTIALLY_PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+}
+
+enum GenerationProfileStatus {
+  DRAFT
+  REVIEW
+  APPROVED
+  SUPERSEDED
+}
+
+enum AmendmentStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  ACTIVE
+  REJECTED
+}
+
+enum NettingMode {
+  OFF
+  AUTO
+  MANUAL
+}
+
+enum NettingBatchStatus {
+  DRAFT
+  FINANCIAL_REVIEW
+  LEGAL_REVIEW
+  APPROVED
+  POSTED
+  REJECTED
+  CANCELLED
+}
+
+enum NettingDirection {
+  RECEIVABLE
+  PAYABLE
+}
+
+enum NettingApprovalType {
+  FINANCIAL
+  LEGAL
+}
+
+enum NettingApprovalDecision {
+  APPROVED
+  REJECTED
+}
+
+enum NettingStatementStatus {
+  ISSUED
+  PARTIALLY_PAID
+  PAID
+  CANCELLED
+}
+
+enum NotificationType {
+  INVOICE
+  PAYMENT
+  METERING
+  REQUEST
+  CONTRACT
+  SETTLEMENT
+  ALERT
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id])
+  partyId   String?
+  party     Party?            @relation(fields: [partyId], references: [id])
+  title     String
+  message   String
+  type      NotificationType
+  isRead    Boolean          @default(false)
+  link      String?
+  createdAt DateTime         @default(now())
+
+  @@index([userId])
+  @@index([userId, partyId, isRead, createdAt])
+  @@index([isRead])
+  @@map("notifications")
+}
+
+enum NettingType {
+  FINANCIAL
+  ENERGY
+}

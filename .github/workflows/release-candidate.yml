@@ -1,0 +1,58 @@
+name: Release Candidate Smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: HTTPS origin of the deployed release candidate
+        required: true
+        type: string
+      release_id:
+        description: Immutable release identifier expected from liveness
+        required: true
+        type: string
+      environment:
+        description: Protected GitHub environment to validate
+        required: true
+        default: staging
+        type: choice
+        options:
+          - staging
+          - production
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-smoke-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    name: Public release smoke gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: ${{ inputs.environment }}
+    env:
+      BASE_URL: ${{ inputs.base_url }}
+      EXPECTED_RELEASE_ID: ${{ inputs.release_id }}
+
+    steps:
+      - name: Require HTTPS target
+        shell: bash
+        run: |
+          case "$BASE_URL" in
+            https://*) ;;
+            *) echo "base_url must use HTTPS" >&2; exit 1 ;;
+          esac
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Run public release smoke gate
+        run: npm run release:smoke

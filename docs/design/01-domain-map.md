@@ -158,11 +158,16 @@
 │  ├── Mode ─────────────────── OFF | AUTO | MANUAL                   │
 │  ├── Type ─────────────────── FINANCIAL | ENERGY                    │
 │  ├── Contracts[] ──────────── member contracts                      │
-│  └── Result ───────────────── net amount for payment                │
+│  └── NettingBatch[] ────────── period execution                     │
+│       ├── NettingItem[] ────── settlement snapshots                 │
+│       ├── NettingApproval[] ── financial + legal decisions          │
+│       └── Result ───────────── receivable - payable                 │
 │                                                                     │
 │  Rules:                                                             │
 │  - Same party only (no cross-party netting in v1)                   │
 │  - Same currency required                                           │
+│  - Same period and confirmed settlements only                       │
+│  - Separate financial and legal approvals                           │
 │  - Underlying settlements always visible                            │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘

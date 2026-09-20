@@ -1,0 +1,45 @@
+{
+  "name": "javascript-clean-code",
+  "displayName": "JavaScript / TypeScript Clean Code",
+  "version": "1.0.0",
+  "schemaVersion": "1.0",
+  "type": "agent-skill",
+  "language": [
+    "javascript",
+    "typescript"
+  ],
+  "entrypoint": "SKILL.md",
+  "description": "Production-oriented Clean Code guidance for AI agents creating, modifying, refactoring, testing, reviewing, and designing JavaScript/TypeScript.",
+  "license": "UNLICENSED",
+  "activation": {
+    "include": [
+      "create JavaScript or TypeScript code",
+      "modify JavaScript or TypeScript code",
+      "refactor JavaScript or TypeScript",
+      "debug JavaScript or TypeScript",
+      "write or modify JavaScript or TypeScript tests",
+      "review JavaScript or TypeScript",
+      "design JavaScript or TypeScript architecture"
+    ],
+    "exclude": [
+      "documentation-only changes",
+      "lockfile-only changes",
+      "unrelated formatting-only changes"
+    ]
+  },
+  "behavior": {
+    "ruleStrengths": [
+      "MUST",
+      "SHOULD",
+      "MAY"
+    ],
+    "selfReview": true,
+    "avoidSpeculativeAbstraction": true,
+    "preserveExistingConventions": true
+  },
+  "directories": {
+    "rules": "rules/",
+    "checklists": "checklists/",
+    "examples": "examples/"
+  }
+}
